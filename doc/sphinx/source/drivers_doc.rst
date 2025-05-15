@@ -205,3 +205,11 @@ GYROSCOPES
    :maxdepth: 1
 
    drivers/adxrs290
+   
+
+MAGNETOMETER
+================
+.. toctree::
+   :maxdepth: 1
+
+   drivers/admt4000
