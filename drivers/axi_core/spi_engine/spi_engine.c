@@ -879,7 +879,8 @@ int32_t spi_engine_offload_transfer(struct no_os_spi_desc *desc,
 		axi_dmac_transfer_wait_completion(eng_desc->offload_rx_dma, 500);
 	}
 
-	usleep(1000);
+	// Removed usleep(1000) to eliminate idle gap between transfers
+	// The wait_completion above already ensures transfer is complete
 
 	spi_engine_queue_no_os_free(&transfer.cmds);
 
