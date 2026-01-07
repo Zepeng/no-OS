@@ -905,14 +905,20 @@ int main(void)
 	struct no_os_gpio_desc *ad4134_resetn_1;
 	struct no_os_gpio_desc *ad4134_pdn_1;
 
+	struct no_os_gpio_init_param gpio_cs_sync = {
+		.number = GPIO_CS_SYNC,
+		.platform_ops = &xil_gpio_ops,
+		.extra = &gpio_extra_param};
+
 	struct ad713x_init_param ad713x_init_param_1 = {
 		.spi_init_prm = {
-			.max_speed_hz = 100000000,
+			.max_speed_hz = 80000000,
 			.chip_select = AD4134_1_SPI_CS,
 			.device_id = SPI_DEVICE_ID,
 			.mode = NO_OS_SPI_MODE_0,
 			.platform_ops = &xil_spi_ops,
 			.extra = (void *)&spi_engine_init_params},
+		.gpio_cs_sync = &gpio_cs_sync,
 		.gpio_mode = &gpio_mode_1,
 		.gpio_dclkmode = &gpio_dclkmode,
 		.gpio_dclkio = &gpio_dclkio_1,
@@ -948,7 +954,7 @@ int main(void)
 	struct spi_engine_offload_init_param spi_engine_offload_init_param;
 	struct spi_engine_offload_message spi_engine_offload_message;
 	struct no_os_spi_desc *spi_eng_desc;
-	uint32_t spi_eng_dma_flg = DMA_CYCLIC;
+	uint32_t spi_eng_dma_flg = DMA_LAST;
 
 	pr_info("\n\n========================================\n");
 	pr_info("AD4134 Continuous Streaming Example\n");
@@ -1158,7 +1164,7 @@ int main(void)
 
 	spi_engine_offload_init_param.rx_dma_baseaddr = AD4134_DMA_BASEADDR;
 	spi_engine_offload_init_param.offload_config = OFFLOAD_RX_EN;
-	spi_engine_offload_init_param.dma_flags = &spi_eng_dma_flg;
+	spi_engine_offload_init_param.dma_flags = spi_eng_dma_flg;
 
 	ret = spi_engine_offload_init(spi_eng_desc, &spi_engine_offload_init_param);
 	if (ret != 0)
@@ -1172,7 +1178,12 @@ int main(void)
 	spi_engine_offload_message.commands_data = NULL;
 	spi_engine_offload_message.tx_addr = 0xA000000;
 
-	/* Note: Channel synchronization handled by AD713x init if needed */
+	ret = ad713x_channel_sync(ad713x_dev_1);
+	if (ret != 0)
+	{
+		pr_err("Failed to synchronize AD4134 channels\n");
+		return -1;
+	}
 	pr_info("AD4134 initialization complete\n");
 
 	pr_info("\n--- Initializing Continuous Streaming ---\n");
