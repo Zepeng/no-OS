@@ -505,6 +505,23 @@ int main()
 	printf("Expected behavior: Fast DMA without ODR synchronization\n\n");
 
 	while(transfer_count < 100) {
+		/* Phase 1: Software delay workaround to pace transfers at ODR rate */
+		/* ODR = 500 kHz = 2 µs per sample */
+		/* Expected time for ADC to accumulate (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO) samples */
+		uint64_t expected_accumulation_us = (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO) * 2;
+
+		/* Check if we need to wait for ADC to accumulate enough samples */
+		if (timing.last_dma_done_us != 0) {
+			uint64_t current_time_us = get_time_us();
+			uint64_t elapsed_us = current_time_us - timing.last_dma_done_us;
+
+			if (elapsed_us < expected_accumulation_us) {
+				/* Wait for ADC to accumulate enough samples at ODR rate */
+				uint64_t delay_us = expected_accumulation_us - elapsed_us;
+				no_os_udelay(delay_us);
+			}
+		}
+
 		/* Record DMA start time */
 		dma_start_us = get_time_us();
 
