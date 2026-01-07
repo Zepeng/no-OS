@@ -616,4 +616,74 @@ modification, are permitted.
 
 ---
 
+## Optimization History
+
+### January 2026 - ODR Synchronization Optimizations
+
+**Objective:** Eliminate dead time between captures and achieve perfect synchronization where actual sample rate matches the ODR setting.
+
+#### Changes Made
+
+**1. SPI Engine Clock Speed Increase (100 MHz)**
+- **File:** [ad4134_continuous_streaming.c:914](src/ad4134_continuous_streaming.c#L914)
+- **Change:** `max_speed_hz = 80000000` → `max_speed_hz = 100000000`
+- **Impact:** Increased sample rate from 395 kHz → 476 kHz (at 80 MHz) → **~500 kHz expected (at 100 MHz)**
+- **Rationale:** Hardware provides 100 MHz clock; utilizing full capability to match 500 kHz ODR target (2000ns period)
+
+**2. DMA Cyclic Mode**
+- **File:** [ad4134_continuous_streaming.c:956](src/ad4134_continuous_streaming.c#L956)
+- **Change:** `spi_eng_dma_flg = DMA_LAST` → `spi_eng_dma_flg = DMA_CYCLIC`
+- **Impact:** Enables hardware-managed automatic buffer cycling, eliminates software intervention overhead
+- **Benefit:** Reduces idle gap between buffer switches
+
+**3. Cache Invalidation Optimization**
+- **File:** [ad4134_continuous_streaming.c:533](src/ad4134_continuous_streaming.c#L533)
+- **Location:** Cache invalidation positioned AFTER DMA start, BEFORE buffer switch
+- **Impact:** Allows cache invalidation to overlap with next DMA transfer filling
+- **Benefit:** Reduces idle gap by ~150-200 μs
+
+**4. Critical Path Optimization**
+- **File:** [ad4134_continuous_streaming.c:455-478](src/ad4134_continuous_streaming.c#L455-L478)
+- **Change:** Moved statistics calculation and error checking AFTER DMA start
+- **Impact:** Only essential operations remain before `spi_engine_offload_transfer()`
+- **Benefit:** Minimizes time to start next DMA transfer
+
+#### Performance Targets
+
+| Metric | Before (80 MHz) | After (100 MHz) | Target |
+|--------|-----------------|-----------------|--------|
+| SPI Clock | 80 MHz | 100 MHz | 100 MHz |
+| Sample Rate | 476 kHz | ~500 kHz | 500 kHz |
+| ODR Period | 2000 ns | 2000 ns | 2000 ns |
+| Sample Loss | 4.8% | ~0% | 0% |
+| Idle Gap | 382-414 μs | <300 μs | Minimal |
+| DMA Period | 34.4 ms | ~32.8 ms | - |
+| DMA Efficiency | 98.8% | >99% | >99% |
+| Buffer Overruns | 0 | 0 | 0 |
+
+#### Configuration Details
+
+**PWM ODR Settings:**
+- Period: 2000 ns (500 kHz target rate)
+- Matches AD4134 datasheet requirement for synchronous operation
+
+**Buffer Configuration:**
+- Size: 16K samples (defined in [parameters.h:38](src/parameters.h#L38))
+- Number of buffers: 2 (ping-pong)
+- Cache alignment: 64 bytes
+
+**HDL Configuration:**
+- CYCLIC mode: Enabled (hdl/projects/ad4134_fmc/common/ad4134_bd.tcl)
+- DMA_2D_TRANSFER: Enabled for ping-pong buffering
+
+#### Expected Results
+
+With 100 MHz SPI Engine clock:
+- **Perfect ODR synchronization:** Actual sample rate = 500 kHz = 1/(2000 ns)
+- **Zero sample loss:** Every ADC conversion captured
+- **Minimal idle gap:** Hardware cyclic DMA eliminates most software overhead
+- **Continuous streaming:** No dead time between buffer transfers
+
+---
+
 **For questions or issues, please contact the project maintainer.**

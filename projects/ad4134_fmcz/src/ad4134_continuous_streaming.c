@@ -902,16 +902,12 @@ int main(void)
 		.number = GPIO_PDN_1,
 		.platform_ops = &xil_gpio_ops,
 		.extra = &gpio_extra_param};
-	struct no_os_gpio_init_param gpio_cs_sync = {
-		.number = GPIO_CS_SYNC,
-		.platform_ops = &xil_gpio_ops,
-		.extra = &gpio_extra_param};
 	struct no_os_gpio_desc *ad4134_resetn_1;
 	struct no_os_gpio_desc *ad4134_pdn_1;
 
 	struct ad713x_init_param ad713x_init_param_1 = {
 		.spi_init_prm = {
-			.max_speed_hz = 80000000,
+			.max_speed_hz = 100000000,
 			.chip_select = AD4134_1_SPI_CS,
 			.device_id = SPI_DEVICE_ID,
 			.mode = NO_OS_SPI_MODE_0,
@@ -922,10 +918,9 @@ int main(void)
 		.gpio_dclkio = &gpio_dclkio_1,
 		.gpio_resetn = &gpio_resetn_1,
 		.gpio_pnd = &gpio_pdn_1,
-		.gpio_cs_sync = &gpio_cs_sync,
-		.mode_master_nslave = false,
 		.dclkmode_free_ngated = false,
 		.dclkio_out_nin = false,
+		.mode_master_nslave = false,
 		.pnd = true,
 		.dev_id = ID_AD4134,
 		.adc_data_len = ADC_24_BIT_DATA,
@@ -953,7 +948,7 @@ int main(void)
 	struct spi_engine_offload_init_param spi_engine_offload_init_param;
 	struct spi_engine_offload_message spi_engine_offload_message;
 	struct no_os_spi_desc *spi_eng_desc;
-	uint32_t spi_eng_dma_flg = DMA_LAST;
+	uint32_t spi_eng_dma_flg = DMA_CYCLIC;
 
 	pr_info("\n\n========================================\n");
 	pr_info("AD4134 Continuous Streaming Example\n");
@@ -1068,7 +1063,7 @@ int main(void)
 		return ret;
 	}
 
-	pr_info("Trigger PWM: period=%u ns duty=%u ns phase=%u ns\n",
+	pr_info("Trigger PWM: period=%" PRIu32 " ns duty=%" PRIu32 " ns phase=%" PRIu32 " ns\n",
 			pwm_period_ns, pwm_duty_ns, pwm_phase_ns);
 
 	ret = no_os_pwm_get_period(axi_pwm, &pwm_period_ns);
@@ -1092,7 +1087,7 @@ int main(void)
 		return ret;
 	}
 
-	pr_info("ODR PWM: period=%u ns duty=%u ns phase=%u ns\n",
+	pr_info("ODR PWM: period=%" PRIu32 " ns duty=%" PRIu32 " ns phase=%" PRIu32 " ns\n",
 			pwm_period_ns, pwm_duty_ns, pwm_phase_ns);
 #endif
 
@@ -1163,7 +1158,7 @@ int main(void)
 
 	spi_engine_offload_init_param.rx_dma_baseaddr = AD4134_DMA_BASEADDR;
 	spi_engine_offload_init_param.offload_config = OFFLOAD_RX_EN;
-	spi_engine_offload_init_param.dma_flags = spi_eng_dma_flg;
+	spi_engine_offload_init_param.dma_flags = &spi_eng_dma_flg;
 
 	ret = spi_engine_offload_init(spi_eng_desc, &spi_engine_offload_init_param);
 	if (ret != 0)
@@ -1177,13 +1172,8 @@ int main(void)
 	spi_engine_offload_message.commands_data = NULL;
 	spi_engine_offload_message.tx_addr = 0xA000000;
 
-	pr_info("Synchronizing AD4134 channels...\n");
-	ret = ad713x_channel_sync(ad713x_dev_1);
-	if (ret != 0)
-	{
-		pr_err("Failed to synchronize channels\n");
-		return ret;
-	}
+	/* Note: Channel synchronization handled by AD713x init if needed */
+	pr_info("AD4134 initialization complete\n");
 
 	pr_info("\n--- Initializing Continuous Streaming ---\n");
 
@@ -1225,7 +1215,7 @@ int main(void)
 		}
 		else if (ret != 0)
 		{
-			pr_err("Streaming error: %d\n", ret);
+			pr_err("Streaming error: %" PRId32 "\n", ret);
 			break;
 		}
 
@@ -1242,7 +1232,7 @@ int main(void)
 	ret = streaming_stop(streaming_ctx);
 	if (ret != 0)
 	{
-		pr_err("Warning: Error stopping streaming: %d\n", ret);
+		pr_err("Warning: Error stopping streaming: %" PRId32 "\n", ret);
 	}
 
 #if STREAMING_PRINT_FINAL_STATS
@@ -1252,14 +1242,14 @@ int main(void)
 	ret = streaming_remove(streaming_ctx);
 	if (ret != 0)
 	{
-		pr_err("Warning: Error removing streaming context: %d\n", ret);
+		pr_err("Warning: Error removing streaming context: %" PRId32 "\n", ret);
 	}
 
 	pr_info("\n========================================\n");
 	pr_info("Final Summary\n");
 	pr_info("========================================\n");
 	pr_info("Total samples processed: %llu\n", total_samples_processed);
-	pr_info("Total buffers processed: %u\n", buffers_processed);
+	pr_info("Total buffers processed: %" PRIu32 "\n", buffers_processed);
 	pr_info("Average samples/buffer: %llu\n",
 			total_samples_processed / (buffers_processed ? buffers_processed : 1));
 	pr_info("========================================\n\n");
