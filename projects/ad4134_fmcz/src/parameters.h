@@ -79,7 +79,7 @@
 #define GPIO_DCLKMODE			GPIO_OFFSET + 44
 #define GPIO_DCLKIO			GPIO_OFFSET + 45
 #define AD4134_FMC_CH_NO		4
-#define AD4134_FMC_SAMPLE_NO		1000  /* Increased from 10 to reduce idle overhead */
+#define AD4134_FMC_SAMPLE_NO		1000  /* Optimized for throughput efficiency */
 
 #define ADC_BUFFER_SIZE			1000000
 

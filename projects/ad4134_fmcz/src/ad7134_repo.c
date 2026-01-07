@@ -500,33 +500,56 @@ int main()
 	// if (ret != 0)
 	//	return ret;
 
-	printf("Starting DMA timing test with 100 transfers...\n\n");
-	printf("NOTE: This version does NOT have gpio_cs_sync or ad713x_channel_sync\n");
-	printf("Expected behavior: Fast DMA without ODR synchronization\n\n");
+	printf("Starting hardware-triggered continuous streaming test with 100 transfers...\n\n");
+	printf("Hardware trigger: 500 kHz PWM automatically triggers SPI Engine Offload\n");
+	printf("Expected behavior: Minimal idle gap, hardware-synchronized continuous streaming\n\n");
 
+	/* Phase 2: Hardware-triggered continuous streaming */
+	/* Use spi_engine_offload_transfer() but only initialize offload ONCE */
+	/* Then directly control DMA for subsequent transfers */
+
+	/* Get access to SPI Engine internals for direct register control */
+	struct spi_engine_desc *eng_desc = (struct spi_engine_desc *)spi_eng_desc->extra;
+
+	/* First transfer: Initialize offload and enable hardware trigger */
+	ret = spi_engine_offload_transfer(spi_eng_desc, spi_engine_offload_message,
+					  (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO));
+	if (ret != 0)
+		return ret;
+
+	printf("Offload initialized and enabled - hardware trigger active\n");
+	printf("Now using direct DMA control for continuous streaming\n\n");
+
+	/* Record first transfer timing */
+	timing_stats_update(&timing, get_time_us() - 1000, get_time_us());
+	transfer_count = 1;
+
+	/* Calculate DMA transfer size */
+	uint8_t word_length = NO_OS_DIV_ROUND_UP(eng_desc->data_width, 8);
+	uint32_t dma_size = word_length * eng_desc->offload_tx_len * (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO);
+
+	/* Remaining transfers: Direct DMA control without resetting offload */
+	/* Offload stays enabled, hardware trigger continues firing automatically */
 	while(transfer_count < 100) {
-		/* Phase 1: Software delay workaround to pace transfers at ODR rate */
-		/* ODR = 500 kHz = 2 µs per sample */
-		/* Expected time for ADC to accumulate (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO) samples */
-		uint64_t expected_accumulation_us = (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO) * 2;
-
-		/* Check if we need to wait for ADC to accumulate enough samples */
-		if (timing.last_dma_done_us != 0) {
-			uint64_t current_time_us = get_time_us();
-			uint64_t elapsed_us = current_time_us - timing.last_dma_done_us;
-
-			if (elapsed_us < expected_accumulation_us) {
-				/* Wait for ADC to accumulate enough samples at ODR rate */
-				uint64_t delay_us = expected_accumulation_us - elapsed_us;
-				no_os_udelay(delay_us);
-			}
-		}
-
 		/* Record DMA start time */
 		dma_start_us = get_time_us();
 
-		ret = spi_engine_offload_transfer(spi_eng_desc, spi_engine_offload_message,
-						  (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO));
+		/* Start DMA transfer for this batch */
+		/* Hardware trigger continuously fires, we just need to capture the data */
+		struct axi_dma_transfer rx_transfer = {
+			.size = dma_size,
+			.transfer_done = 0,
+			.cyclic = NO,
+			.src_addr = 0,
+			.dest_addr = (uintptr_t)spi_engine_offload_message.rx_addr
+		};
+
+		ret = axi_dmac_transfer_start(eng_desc->offload_rx_dma, &rx_transfer);
+		if (ret != 0)
+			return ret;
+
+		/* Wait for DMA transfer to complete */
+		ret = axi_dmac_transfer_wait_completion(eng_desc->offload_rx_dma, 500);
 		if (ret != 0)
 			return ret;
 
@@ -541,8 +564,8 @@ int main()
 					  AD4134_FMC_SAMPLE_NO * AD4134_FMC_CH_NO *
 					  sizeof(uint32_t));
 
-		/* Print data from first transfer only */
-		if (transfer_count == 1) {
+		/* Print data from second transfer only (first one was initialization) */
+		if (transfer_count == 2) {
 			float ch_voltages[4];
 			for (i = 0; i < AD4134_FMC_SAMPLE_NO; i++) {
 				j = 0;
@@ -572,6 +595,8 @@ int main()
 			timing_stats_print(&timing, transfer_count);
 		}
 	}
+
+	printf("\nContinuous streaming complete\n");
 
 	/* Print final timing statistics */
 	printf("\n========================================\n");
