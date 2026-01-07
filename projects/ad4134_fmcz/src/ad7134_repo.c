@@ -149,7 +149,7 @@ static void timing_stats_print(struct timing_stats *stats, uint32_t num_transfer
 		avg_period_us = stats->period_total_us / stats->period_count;
 	}
 
-	printf("\n=== DMA Timing Statistics (after %u transfers) ===\n", num_transfers);
+	printf("\n=== DMA Timing Statistics (after %lu transfers) ===\n", (unsigned long)num_transfers);
 	if (stats->idle_count > 0) {
 		printf("DMA idle gap: min=%llu us, max=%llu us, avg=%llu us\n",
 		       stats->idle_min_us, stats->idle_max_us, avg_idle_us);
@@ -325,7 +325,8 @@ int main()
 	ad713x_init_param_1.gpio_mode = &ad4134_1_mode;
 	ad713x_init_param_1.gpio_pnd = &ad4134_1_pnd;
 	ad713x_init_param_1.gpio_resetn = &ad4134_1_resetn;
-	ad713x_init_param_1.gpio_cs_sync = &ad4134_cs_sync;
+	// NOTE: gpio_cs_sync not supported in current driver version
+	// ad713x_init_param_1.gpio_cs_sync = &ad4134_cs_sync;
 	ad713x_init_param_1.mode_master_nslave = false;
 	ad713x_init_param_1.dclkmode_free_ngated = false;
 	ad713x_init_param_1.dclkio_out_nin = false;
@@ -407,7 +408,7 @@ int main()
 
 	spi_engine_offload_init_param.rx_dma_baseaddr = AD4134_DMA_BASEADDR;
 	spi_engine_offload_init_param.offload_config = OFFLOAD_RX_EN;
-	spi_engine_offload_init_param.dma_flags = spi_eng_dma_flg;
+	spi_engine_offload_init_param.dma_flags = &spi_eng_dma_flg;
 
 	ret = no_os_spi_init(&spi_eng_desc, &spi_eng_init_prm);
 	if (ret != 0)
@@ -494,11 +495,14 @@ int main()
 
 #endif /* IIO_SUPPORT */
 
-	ret = ad713x_channel_sync(ad713x_dev_1);
-	if (ret != 0)
-		return ret;
+	// NOTE: ad713x_channel_sync not available in current driver version
+	// ret = ad713x_channel_sync(ad713x_dev_1);
+	// if (ret != 0)
+	//	return ret;
 
 	printf("Starting DMA timing test with 100 transfers...\n\n");
+	printf("NOTE: This version does NOT have gpio_cs_sync or ad713x_channel_sync\n");
+	printf("Expected behavior: Fast DMA without ODR synchronization\n\n");
 
 	while(transfer_count < 100) {
 		/* Record DMA start time */
