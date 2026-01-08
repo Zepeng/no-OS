@@ -85,7 +85,7 @@ int main()
 {
 	struct axi_clkgen *clkgen_cn0561;
 	struct axi_clkgen_init clkgen_cn0561_init = {
-		.base = XPAR_AXI_CN0561_CLKGEN_BASEADDR,
+		.base = CN0561_CLKGEN_BASEADDR,
 		.name = "cn0561_clkgen",
 		.parent_rate = 100000000
 	};
@@ -255,7 +255,7 @@ int main()
 		return -1;
 
 	/* Print register status */
-	uint32_t chip_type, status, device_config;
+	uint8_t chip_type, status, device_config;
 	ad713x_spi_reg_read(cn0561_dev, AD713X_REG_CHIP_TYPE, &chip_type);
 	ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_STATUS, &status);
 	ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_CONFIG, &device_config);
