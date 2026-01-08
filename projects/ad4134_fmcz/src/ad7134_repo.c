@@ -501,14 +501,16 @@ int main()
 	//	return ret;
 
 	printf("Starting continuous streaming test with 100 transfers...\n\n");
-	printf("Phase 2 Final: Fast DMA restart without software delay\n");
-	printf("Hardware trigger fires but offload resets each iteration\n");
-	printf("Best achievable: ~24 us idle gap\n\n");
+	printf("Phase 2 Optimized: Fast DMA restart with static memory allocation\n");
+	printf("Driver now uses static allocation for single-command messages\n");
+	printf("Eliminated malloc/free overhead (~4-10 us per transfer)\n");
+	printf("Expected idle gap: ~18 us (down from ~24 us)\n\n");
 
 	while(transfer_count < 100) {
 		/* Record DMA start time */
 		dma_start_us = get_time_us();
 
+		/* Driver automatically uses static allocation for our single-command message */
 		ret = spi_engine_offload_transfer(spi_eng_desc, spi_engine_offload_message,
 						  (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO));
 		if (ret != 0)

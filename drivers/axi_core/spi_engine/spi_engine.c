@@ -810,6 +810,9 @@ int32_t spi_engine_offload_transfer(struct no_os_spi_desc *desc,
 	struct spi_engine_desc	*eng_desc;
 	uint32_t 		i;
 	uint8_t 		word_length;
+	/* Static buffer for single-command optimization - avoids malloc overhead */
+	static struct spi_engine_cmd_queue static_single_cmd;
+	bool use_static_alloc = false;
 
 	eng_desc = desc->extra;
 
@@ -824,7 +827,14 @@ int32_t spi_engine_offload_transfer(struct no_os_spi_desc *desc,
 	eng_desc->offload_tx_len = 0;
 	eng_desc->offload_rx_len = 0;
 
-	transfer.cmds = (spi_engine_cmd_queue*)no_os_malloc(sizeof(*transfer.cmds));
+	/* Optimization: Use static allocation for single-command messages */
+	if (msg.no_commands == 1) {
+		transfer.cmds = &static_single_cmd;
+		use_static_alloc = true;
+	} else {
+		transfer.cmds = (spi_engine_cmd_queue*)no_os_malloc(sizeof(*transfer.cmds));
+		use_static_alloc = false;
+	}
 
 	if (!transfer.cmds)
 		return -1;
@@ -882,7 +892,10 @@ int32_t spi_engine_offload_transfer(struct no_os_spi_desc *desc,
 	// Removed usleep(1000) to eliminate idle gap between transfers
 	// The wait_completion above already ensures transfer is complete
 
-	spi_engine_queue_no_os_free(&transfer.cmds);
+	/* Only free if we used dynamic allocation */
+	if (!use_static_alloc) {
+		spi_engine_queue_no_os_free(&transfer.cmds);
+	}
 
 	return 0;
 }
