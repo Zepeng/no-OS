@@ -43,6 +43,7 @@
 #include <math.h>
 #include "xil_printf.h"
 #include "spi_engine.h"
+#include "spi_engine_private.h"
 #include "ad713x.h"
 #include "no_os_spi.h"
 #include "xilinx_spi.h"
@@ -500,18 +501,77 @@ int main()
 	// if (ret != 0)
 	//	return ret;
 
-	printf("Starting continuous streaming test with 100 transfers...\n\n");
-	printf("Phase 2: Removing software delay - testing minimum achievable idle gap\n");
-	printf("Expected behavior: Transfers as fast as DMA can restart\n\n");
+	printf("Starting hardware-triggered continuous streaming (Solution 4)...\n\n");
+	printf("One-time offload initialization, then DMA-only loop\n");
+	printf("Hardware trigger: 500 kHz PWM continuously fires SPI transactions\n");
+	printf("Expected: <10 us idle gap (just DMA restart overhead)\n\n");
 
+	/* Get access to SPI Engine internals */
+	struct spi_engine_desc *eng_desc = (struct spi_engine_desc *)spi_eng_desc->extra;
+
+	/* === ONE-TIME OFFLOAD INITIALIZATION === */
+	/* Do the first transfer using the standard API to initialize offload */
+	/* This loads commands, calculates offload_tx_len, and enables offload */
+	dma_start_us = get_time_us();
+	ret = spi_engine_offload_transfer(spi_eng_desc, spi_engine_offload_message,
+					  (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO));
+	if (ret != 0) {
+		printf("ERROR: Initial offload transfer failed!\n");
+		return ret;
+	}
+	dma_done_us = get_time_us();
+
+	/* Record first transfer */
+	timing_stats_update(&timing, dma_start_us, dma_done_us);
+	transfer_count = 1;
+
+	/* Print first batch of data */
+	Xil_DCacheInvalidateRange((INTPTR)adc_buffer,
+				  AD4134_FMC_SAMPLE_NO * AD4134_FMC_CH_NO *
+				  sizeof(uint32_t));
+
+	printf("First transfer complete (initialization)\n");
+	printf("Offload is now enabled and will stay enabled for all remaining transfers\n");
+	printf("Hardware trigger (500 kHz PWM) is continuously firing SPI transactions\n");
+	printf("Starting DMA-only loop - NO offload reset between transfers!\n\n");
+
+	/* Calculate DMA transfer size */
+	uint8_t word_length = NO_OS_DIV_ROUND_UP(eng_desc->data_width, 8);
+	uint32_t dma_transfer_size = word_length * eng_desc->offload_tx_len *
+				     (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO);
+
+	printf("DMA transfer size: %u bytes\n", dma_transfer_size);
+	printf("Expected samples per transfer: %u\n\n", (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO));
+
+	/* === CONTINUOUS DMA LOOP === */
+	/* Offload stays enabled - we only restart DMA to capture data */
 	while(transfer_count < 100) {
 		/* Record DMA start time */
 		dma_start_us = get_time_us();
 
-		ret = spi_engine_offload_transfer(spi_eng_desc, spi_engine_offload_message,
-						  (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO));
-		if (ret != 0)
+		/* Setup DMA transfer to capture data from SPI Engine FIFO */
+		/* Hardware trigger continuously fires, SPI Engine accumulates data in FIFO */
+		/* We just read from FIFO as fast as we can restart DMA */
+		struct axi_dma_transfer rx_transfer = {
+			.size = dma_transfer_size,
+			.transfer_done = 0,
+			.cyclic = NO,
+			.src_addr = 0,
+			.dest_addr = (uintptr_t)spi_engine_offload_message.rx_addr
+		};
+
+		ret = axi_dmac_transfer_start(eng_desc->offload_rx_dma, &rx_transfer);
+		if (ret != 0) {
+			printf("ERROR: DMA transfer start failed!\n");
 			return ret;
+		}
+
+		/* Wait for DMA to complete */
+		ret = axi_dmac_transfer_wait_completion(eng_desc->offload_rx_dma, 500);
+		if (ret != 0) {
+			printf("ERROR: DMA transfer timeout!\n");
+			return ret;
+		}
 
 		/* Record DMA done time */
 		dma_done_us = get_time_us();
@@ -556,7 +616,9 @@ int main()
 		}
 	}
 
-	printf("\nContinuous streaming complete\n");
+	/* Disable offload after streaming complete */
+	spi_engine_write(eng_desc, SPI_ENGINE_REG_OFFLOAD_CTRL(0), 0x0000);
+	printf("\nContinuous streaming complete - offload disabled\n");
 
 	/* Print final timing statistics */
 	printf("\n========================================\n");
