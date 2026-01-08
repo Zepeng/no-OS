@@ -543,6 +543,9 @@ int main()
 	printf("DMA transfer size: %u bytes\n", dma_transfer_size);
 	printf("Expected samples per transfer: %u\n\n", (AD4134_FMC_CH_NO * AD4134_FMC_SAMPLE_NO));
 
+	/* Give hardware a moment to stabilize after first transfer */
+	no_os_udelay(100);
+
 	/* === CONTINUOUS DMA LOOP === */
 	/* Offload stays enabled - we only restart DMA to capture data */
 	while(transfer_count < 100) {
@@ -560,10 +563,17 @@ int main()
 			.dest_addr = (uintptr_t)spi_engine_offload_message.rx_addr
 		};
 
-		ret = axi_dmac_transfer_start(eng_desc->offload_rx_dma, &rx_transfer);
-		if (ret != 0) {
-			printf("ERROR: DMA transfer start failed!\n");
-			return ret;
+		/* Try to start DMA transfer - retry if queue is full */
+		int retry_count = 0;
+		while ((ret = axi_dmac_transfer_start(eng_desc->offload_rx_dma, &rx_transfer)) != 0) {
+			retry_count++;
+			if (retry_count > 10) {
+				printf("ERROR: DMA transfer start failed after %d retries!\n", retry_count);
+				printf("This likely means the DMA queue is stuck or offload has stopped\n");
+				return ret;
+			}
+			/* Wait a bit for previous transfer to clear from queue */
+			no_os_udelay(10);
 		}
 
 		/* Wait for DMA to complete */
