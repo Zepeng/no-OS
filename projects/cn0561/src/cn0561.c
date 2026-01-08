@@ -5,41 +5,32 @@
 ********************************************************************************
 * Copyright 2022(c) Analog Devices, Inc.
 *
-* All rights reserved.
-*
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are met:
-* - Redistributions of source code must retain the above copyright
-* notice, this list of conditions and the following disclaimer.
-* - Redistributions in binary form must reproduce the above copyright
-* notice, this list of conditions and the following disclaimer in
-* the documentation and/or other materials provided with the
-* distribution.
-* - Neither the name of Analog Devices, Inc. nor the names of its
-* contributors may be used to endorse or promote products derived
-* from this software without specific prior written permission.
-* - The use of this software may or may not infringe the patent rights
-* of one or more patent holders. This license does not release you
-* from the requirement that you obtain separate licenses from these
-* patent holders to use this software.
-* - Use of the software either in source or binary form, must be run
-* on or directly connected to an Analog Devices Inc. component.
 *
-* THIS SOFTWARE IS PROVIDED BY ANALOG DEVICES "AS IS" AND ANY EXPRESS OR
-* IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, NON-INFRINGEMENT,
-* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-* IN NO EVENT SHALL ANALOG DEVICES BE LIABLE FOR ANY DIRECT, INDIRECT,
+* 1. Redistributions of source code must retain the above copyright notice,
+*    this list of conditions and the following disclaimer.
+*
+* 2. Redistributions in binary form must reproduce the above copyright notice,
+*    this list of conditions and the following disclaimer in the documentation
+*    and/or other materials provided with the distribution.
+*
+* 3. Neither the name of Analog Devices, Inc. nor the names of its
+*    contributors may be used to endorse or promote products derived from this
+*    software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED BY ANALOG DEVICES, INC. “AS IS” AND ANY EXPRESS OR
+* IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+* EVENT SHALL ANALOG DEVICES, INC. BE LIABLE FOR ANY DIRECT, INDIRECT,
 * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-* LIMITED TO, INTELLECTUAL PROPERTY RIGHTS, PROCUREMENT OF SUBSTITUTE GOODS OR
-* SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-* CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-* OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+* LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
+* OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+* LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+* NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+* EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *******************************************************************************/
 
-/******************************************************************************/
-/***************************** Include Files **********************************/
-/******************************************************************************/
 #include <stdio.h>
 #include <sleep.h>
 #include <stdbool.h>
@@ -65,6 +56,16 @@
 #include "clk_axi_clkgen.h"
 #include "axi_dmac.h"
 
+/******************************************************************************/
+/********************** Macros and Constants Definitions **********************/
+/******************************************************************************/
+
+/* AD4134 Step 1 Configuration Mode
+ * Set to 1: Configuration only (no DMA, no offload) - for Step 1 testing
+ * Set to 0: Full streaming mode (with DMA and offload) - for Step 3
+ */
+#define STEP1_CONFIG_ONLY  1
+
 #ifdef IIO_SUPPORT
 #include "no_os_irq.h"
 #include "xilinx_irq.h"
@@ -75,7 +76,10 @@
 #include "iio_app.h"
 #endif // IIO_SUPPORT
 
-static uint32_t adc_buffer[ADC_BUFFER_SIZE] __attribute__((aligned));
+#if !STEP1_CONFIG_ONLY
+/* DMA buffer only needed for full streaming mode (Step 3) */
+static uint32_t adc_buffer[ADC_BUFFER_SIZE] __attribute__((aligned(1024)));
+#endif
 
 int main()
 {
@@ -87,16 +91,20 @@ int main()
 	};
 	struct ad713x_dev *cn0561_dev;
 	struct ad713x_init_param cn0561_init_param;
-	uint32_t i = 0, j;
 	uint32_t adc_channel;
 	int32_t ret;
+	uint32_t max_speed_hz = ZED_DATA_CLK_FREQ_HZ;
+
+#if !STEP1_CONFIG_ONLY
+	/* DMA/Offload variables - only for full streaming mode (Step 3) */
+	uint32_t i = 0, j;
 	const float lsb = 4.096 / (pow(2, 23));
 	float data;
 	uint32_t spi_eng_dma_flg = DMA_LAST | DMA_PARTIAL_REPORTING_EN;
-	uint32_t max_speed_hz = CORA_Z7S_DATA_CLK_FREQ_HZ;
 	struct spi_engine_offload_init_param spi_engine_offload_init_param;
 	struct spi_engine_offload_message spi_engine_offload_message;
 	uint32_t spi_eng_msg_cmds[1];
+#endif
 	static struct xil_spi_init_param spi_engine_init_params = {
 		.type = SPI_PS,
 	};
@@ -138,18 +146,18 @@ int main()
 	struct no_os_pwm_desc *axi_pwm;
 	struct axi_pwm_init_param axi_zed_pwm_init_trigger = {
 		.base_addr = XPAR_ODR_GENERATOR_BASEADDR,
-		.ref_clock_Hz = 96000000,
+		.ref_clock_Hz = 100000000,
 		.channel = 0
 	};
 	struct axi_pwm_init_param axi_zed_pwm_init_odr = {
 		.base_addr = XPAR_ODR_GENERATOR_BASEADDR,
-		.ref_clock_Hz = 96000000,
+		.ref_clock_Hz = 100000000,
 		.channel = 1
 	};
 	struct no_os_pwm_init_param axi_pwm_init_trigger = {
 		.period_ns = 1000,
 		.duty_cycle_ns = 1,
-		.phase_ns = 30,
+		.phase_ns = 45,
 		.platform_ops = &axi_pwm_ops,
 		.extra = &axi_zed_pwm_init_trigger
 	};
@@ -185,16 +193,31 @@ int main()
 	cn0561_init_param.pnd = true;
 	cn0561_init_param.spi_init_prm.chip_select = CN0561_SPI_CS;
 	cn0561_init_param.spi_init_prm.device_id = SPI_DEVICE_ID;
-	cn0561_init_param.spi_init_prm.max_speed_hz = 1000000;
+	cn0561_init_param.spi_init_prm.max_speed_hz = 10000000;
 	cn0561_init_param.spi_init_prm.mode = NO_OS_SPI_MODE_0;
 	cn0561_init_param.spi_init_prm.platform_ops = &xil_spi_ops;
 	cn0561_init_param.spi_init_prm.extra = (void *)&spi_engine_init_params;
 	cn0561_init_param.spi_common_dev = 0;
 
+#if !STEP1_CONFIG_ONLY
 	spi_eng_msg_cmds[0] = READ(4);
+#endif
 
 	Xil_ICacheEnable();
 	Xil_DCacheEnable();
+
+	xil_printf("\n========================================\n");
+#if STEP1_CONFIG_ONLY
+	xil_printf("AD4134 Step 1 - Configuration Test\n");
+	xil_printf("DMA: DISABLED (removed from HDL)\n");
+	xil_printf("Offload: DISABLED (no trigger)\n");
+	xil_printf("ILA: Use Vivado Hardware Manager\n");
+#else
+	xil_printf("CN0561 Full Streaming Mode\n");
+	xil_printf("DMA: ENABLED\n");
+	xil_printf("Offload: ENABLED\n");
+#endif
+	xil_printf("========================================\n\n");
 
 	ret = axi_clkgen_init(&clkgen_cn0561, &clkgen_cn0561_init);
 	if (ret != 0)
@@ -231,9 +254,70 @@ int main()
 	if (ret != 0)
 		return -1;
 
+	/* Print register status */
+	uint32_t chip_type, status, device_config;
+	ad713x_spi_reg_read(cn0561_dev, AD713X_REG_CHIP_TYPE, &chip_type);
+	ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_STATUS, &status);
+	ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_CONFIG, &device_config);
+
+	xil_printf("=== AD4134 Status ===\n");
+	xil_printf("CHIP_TYPE:     0x%02X %s\n", chip_type,
+	           (chip_type == 0x40) ? "[OK]" : "[ERROR]");
+	xil_printf("STATUS:        0x%02X\n", status);
+	xil_printf("DEVICE_CONFIG: 0x%02X\n", device_config);
+	xil_printf("=====================\n\n");
+
+#if STEP1_CONFIG_ONLY
+	/******************************************************************
+	 * STEP 1: Configuration Only Mode
+	 * - No DMA offload initialization
+	 * - Monitor status periodically
+	 * - Use ILA to observe DCLK, ODR, DOUT signals
+	 ******************************************************************/
+
+	xil_printf("ADC configured for continuous conversion.\n");
+	xil_printf("Data is output on DOUT[3:0] pins.\n");
+	xil_printf("Use ILA in Vivado Hardware Manager to observe signals.\n\n");
+	xil_printf("Monitoring status (press reset to stop):\n\n");
+
+	uint32_t loop_count = 0;
+	while (1) {
+		ret = ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_STATUS, &status);
+		if (ret == 0) {
+			xil_printf("Loop %4d: Status = 0x%02X", loop_count, status);
+			if (status & 0x01) xil_printf(" [READY]");
+			if (status & 0x40) xil_printf(" [BUSY]");
+			if (status & 0x80) xil_printf(" [ERROR]");
+			xil_printf("\n");
+		} else {
+			xil_printf("Loop %4d: Failed to read status\n", loop_count);
+		}
+
+		loop_count++;
+		sleep(2);  // Every 2 seconds
+
+		/* Every 10 loops, print full register dump */
+		if (loop_count % 10 == 0) {
+			xil_printf("\n--- Register dump at loop %d ---\n", loop_count);
+			ad713x_spi_reg_read(cn0561_dev, AD713X_REG_CHIP_TYPE, &chip_type);
+			ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_CONFIG, &device_config);
+			xil_printf("CHIP_TYPE:     0x%02X\n", chip_type);
+			xil_printf("DEVICE_CONFIG: 0x%02X\n", device_config);
+			xil_printf("STATUS:        0x%02X\n", status);
+			xil_printf("--------------------------------\n\n");
+		}
+	}
+
+#else
+	/******************************************************************
+	 * STEP 3: Full Streaming Mode
+	 * - Initialize DMA and offload
+	 * - Start continuous data capture
+	 ******************************************************************/
+
 	spi_engine_offload_init_param.rx_dma_baseaddr = CN0561_DMA_BASEADDR;
 	spi_engine_offload_init_param.offload_config = OFFLOAD_RX_EN;
-	spi_engine_offload_init_param.dma_flags = &spi_eng_dma_flg;
+	spi_engine_offload_init_param.dma_flags = spi_eng_dma_flg;
 
 	ret = no_os_spi_init(&spi_eng_desc, &spi_eng_init_prm);
 	if (ret != 0)
@@ -313,18 +397,18 @@ int main()
 				  CN0561_FMC_SAMPLE_NO * CN0561_FMC_CH_NO *
 				  sizeof(uint32_t));
 
-	for(i = 0; i < CN0561_FMC_SAMPLE_NO; i++) {
+	for (i = 0; i < CN0561_FMC_SAMPLE_NO; i++) {
 		j = 0;
 		printf("%lu: ", i);
-		while(j < CN0561_FMC_CH_NO) {
-			adc_buffer[CN0561_FMC_CH_NO*i+j] &= 0xffffff00;
-			adc_buffer[CN0561_FMC_CH_NO*i+j] >>= 8;
-			data = lsb * (int32_t)adc_buffer[CN0561_FMC_CH_NO*i+j];
-			if(data > 4.095)
+		while (j < CN0561_FMC_CH_NO) {
+			adc_buffer[CN0561_FMC_CH_NO * i + j] &= 0xffffff00;
+			adc_buffer[CN0561_FMC_CH_NO * i + j] >>= 8;
+			data = lsb * (int32_t)adc_buffer[CN0561_FMC_CH_NO * i + j];
+			if (data > 4.095)
 				data = data - 8.192;
 			printf("CH%lu: 0x%08lx = %+1.5fV ", j,
-			       adc_buffer[CN0561_FMC_CH_NO*i+j], data);
-			if(j == (CN0561_FMC_CH_NO - 1))
+			       adc_buffer[CN0561_FMC_CH_NO * i + j], data);
+			if (j == (CN0561_FMC_CH_NO - 1))
 				printf("\n");
 			j++;
 		}
@@ -334,9 +418,11 @@ int main()
 	ret = ad713x_spi_reg_dump(cn0561_dev);
 	if (ret != 0)
 		return ret;
+#endif /* CN0561_REG_DUMP */
 
-#endif /* AD4134 DEVICE REG DUMP */
+#endif /* STEP1_CONFIG_ONLY */
 
+	/* Cleanup (only reached in full streaming mode, not in Step 1 loop) */
 	ad713x_remove(cn0561_dev);
 	print("Bye\n\r");
 
