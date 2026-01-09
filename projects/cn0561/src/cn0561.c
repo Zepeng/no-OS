@@ -70,6 +70,113 @@
 #define AXI_CLKGEN_MMCM_RESETN (1U << 1)
 #define AXI_CLKGEN_RESETN (1U << 0)
 
+static void ad4134_slave_mode_checks(struct ad713x_dev *dev)
+{
+	uint8_t reg = 0;
+	int32_t ret;
+
+	xil_printf("\r\n=== AD4134 Slave Mode Checks ===\r\n");
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_DEVICE_STATUS, &reg);
+	if (ret == 0) {
+		xil_printf("DEVICE_STATUS: 0x%02X\r\n", reg);
+		xil_printf("  PLL_LOCK:   %s\r\n",
+		           (reg & AD713X_DEV_STAT_PLL_LOCK_MSK) ? "OK" : "FAIL");
+		xil_printf("  MODE:       %s\r\n",
+		           (reg & AD713X_DEV_STAT_MODE_MSK) ? "MASTER (FAIL)" : "SLAVE (OK)");
+		xil_printf("  DCLKIO:     %s\r\n",
+		           (reg & AD713X_DEV_STAT_DCLKIO_MSK) ? "OUTPUT (FAIL)" : "INPUT (OK)");
+		xil_printf("  DCLKMODE:   %s\r\n",
+		           (reg & AD713X_DEV_STAT_DCLKMODE_MSK) ? "FREE" : "GATED");
+	} else {
+		xil_printf("DEVICE_STATUS: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_DEVICE_CONFIG, &reg);
+	if (ret == 0) {
+		xil_printf("DEVICE_CONFIG: 0x%02X\r\n", reg);
+		xil_printf("  NO_CHIP_ERR: %s\r\n",
+		           (reg & AD713X_DEV_CONFIG_NO_CHIP_ERR_MSK) ? "OK" : "FAIL");
+		xil_printf("  OP_IN_PROG:  %s\r\n",
+		           (reg & AD713X_DEV_CONFIG_OP_IN_PROGRESS_MSK) ? "BUSY" : "IDLE");
+		xil_printf("  PWR_MODE:    %s\r\n",
+		           (reg & AD713X_DEV_CONFIG_PWR_MODE_MSK) ? "NORMAL" : "LOW");
+	} else {
+		xil_printf("DEVICE_CONFIG: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_DEVICE_CONFIG1, &reg);
+	if (ret == 0) {
+		xil_printf("DEVICE_CONFIG1: 0x%02X\r\n", reg);
+		xil_printf("  CLKOUT_EN:   %s\r\n",
+		           (reg & AD713X_DEV_CONFIG1_CLKOUT_EN_MSK) ? "OK" : "FAIL");
+		xil_printf("  REF_GAIN_CORR: %s\r\n",
+		           (reg & AD713X_DEV_CONFIG1_REF_GAIN_CORR_EN_MSK) ? "OK" : "FAIL");
+	} else {
+		xil_printf("DEVICE_CONFIG1: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_DIGITAL_INTERFACE_CONFIG, &reg);
+	if (ret == 0) {
+		uint8_t fmt = reg & AD713X_DIG_INT_CONFIG_FORMAT_MSK;
+
+		xil_printf("DIGITAL_INTERFACE_CONFIG: 0x%02X\r\n", reg);
+		xil_printf("  FORMAT:     %s\r\n",
+		           (fmt == AD713X_DIG_INT_CONFIG_FORMAT_MODE(QUAD_CH_PO)) ?
+		           "QUAD_CH_PO (OK)" : "NOT QUAD_CH_PO");
+	} else {
+		xil_printf("DIGITAL_INTERFACE_CONFIG: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_CHAN_DIG_FILTER_SEL, &reg);
+	if (ret == 0) {
+		xil_printf("CHAN_DIG_FILTER_SEL: 0x%02X\r\n", reg);
+		for (uint8_t ch = 0; ch <= 3; ch++) {
+			uint8_t val = (reg >> (2 * ch)) & 0x3;
+
+			xil_printf("  CH%u:        %s\r\n", ch,
+			           (val == SINC3) ? "SINC3 (OK)" : "NOT SINC3");
+		}
+	} else {
+		xil_printf("CHAN_DIG_FILTER_SEL: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_POWER_DOWN_CONTROL, &reg);
+	if (ret == 0) {
+		xil_printf("POWER_DOWN_CONTROL: 0x%02X\r\n", reg);
+		xil_printf("  POWERDOWN:  %s\r\n", reg ? "ENABLED (WARN)" : "DISABLED (OK)");
+	} else {
+		xil_printf("POWER_DOWN_CONTROL: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_DATA_PACKET_CONFIG, &reg);
+	if (ret == 0) {
+		uint8_t frame = (reg & AD713X_DATA_PACKET_CONFIG_FRAME_MSK) >> 4;
+		uint8_t dclk = reg & AD713X_DATA_PACKET_CONFIG_DCLK_FREQ_MSK;
+
+		xil_printf("DATA_PACKET_CONFIG: 0x%02X\r\n", reg);
+		xil_printf("  FRAME:      %u\r\n", frame);
+		xil_printf("  DCLK_FREQ:  %u\r\n", dclk);
+	} else {
+		xil_printf("DATA_PACKET_CONFIG: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_TRANSFER_REGISTER, &reg);
+	if (ret == 0) {
+		xil_printf("TRANSFER_REGISTER: 0x%02X\r\n", reg);
+		xil_printf("  MASTER/SLAVE_TX: %s\r\n",
+		           (reg & AD713X_TRANSFER_MASTER_SLAVE_TX_BIT_MSK) ? "1" : "0");
+	} else {
+		xil_printf("TRANSFER_REGISTER: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_STREAM_MODE, &reg);
+	if (ret == 0)
+		xil_printf("STREAM_MODE: 0x%02X\r\n", reg);
+	else
+		xil_printf("STREAM_MODE: read error\r\n");
+}
+
 #ifdef IIO_SUPPORT
 #include "no_os_irq.h"
 #include "xilinx_irq.h"
@@ -271,6 +378,7 @@ int main()
 	xil_printf("STATUS:        0x%02X\r\n", status);
 	xil_printf("DEVICE_CONFIG: 0x%02X\r\n", device_config);
 	xil_printf("=====================\r\n\r\n");
+	ad4134_slave_mode_checks(cn0561_dev);
 
 #if STEP1_CONFIG_ONLY
 	/******************************************************************
