@@ -54,6 +54,7 @@
 #include "no_os_pwm.h"
 #include "axi_pwm_extra.h"
 #include "clk_axi_clkgen.h"
+#include "no_os_axi_io.h"
 #include "axi_dmac.h"
 
 /******************************************************************************/
@@ -65,6 +66,9 @@
  * Set to 0: Full streaming mode (with DMA and offload) - for Step 3
  */
 #define STEP1_CONFIG_ONLY  1
+#define AXI_CLKGEN_REG_RESETN 0x40
+#define AXI_CLKGEN_MMCM_RESETN (1U << 1)
+#define AXI_CLKGEN_RESETN (1U << 0)
 
 #ifdef IIO_SUPPORT
 #include "no_os_irq.h"
@@ -223,6 +227,10 @@ int main()
 	if (ret != 0)
 		return -1;
 	/* Keep HDL clockgen defaults; axi_clkgen_set_rate forces CLKOUT1=CLKOUT0/4. */
+	ret = no_os_axi_io_write(clkgen_cn0561_init.base, AXI_CLKGEN_REG_RESETN,
+	                         AXI_CLKGEN_RESETN | AXI_CLKGEN_MMCM_RESETN);
+	if (ret != 0)
+		return ret;
 
 	ret = no_os_pwm_init(&axi_pwm, &axi_pwm_init_trigger);
 	if (ret != 0)
