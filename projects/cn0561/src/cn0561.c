@@ -146,12 +146,12 @@ int main()
 	struct no_os_pwm_desc *axi_pwm;
 	struct axi_pwm_init_param axi_zed_pwm_init_trigger = {
 		.base_addr = XPAR_ODR_GENERATOR_BASEADDR,
-		.ref_clock_Hz = 100000000,
+		.ref_clock_Hz = ZED_DATA_CLK_FREQ_HZ,
 		.channel = 0
 	};
 	struct axi_pwm_init_param axi_zed_pwm_init_odr = {
 		.base_addr = XPAR_ODR_GENERATOR_BASEADDR,
-		.ref_clock_Hz = 100000000,
+		.ref_clock_Hz = ZED_DATA_CLK_FREQ_HZ,
 		.channel = 1
 	};
 	struct no_os_pwm_init_param axi_pwm_init_trigger = {
@@ -222,10 +222,7 @@ int main()
 	ret = axi_clkgen_init(&clkgen_cn0561, &clkgen_cn0561_init);
 	if (ret != 0)
 		return -1;
-
-	ret = axi_clkgen_set_rate(clkgen_cn0561, CN0561_SPI_ENG_REF_CLK_FREQ_HZ);
-	if (ret != 0)
-		return -1;
+	/* Keep HDL clockgen defaults; axi_clkgen_set_rate forces CLKOUT1=CLKOUT0/4. */
 
 	ret = no_os_pwm_init(&axi_pwm, &axi_pwm_init_trigger);
 	if (ret != 0)
