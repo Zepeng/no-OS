@@ -206,18 +206,18 @@ int main()
 	Xil_ICacheEnable();
 	Xil_DCacheEnable();
 
-	xil_printf("\n========================================\n");
+	xil_printf("\r\n========================================\r\n");
 #if STEP1_CONFIG_ONLY
-	xil_printf("AD4134 Step 1 - Configuration Test\n");
-	xil_printf("DMA: DISABLED (removed from HDL)\n");
-	xil_printf("Offload: DISABLED (no trigger)\n");
-	xil_printf("ILA: Use Vivado Hardware Manager\n");
+	xil_printf("AD4134 Step 1 - Configuration Test\r\n");
+	xil_printf("DMA: DISABLED (removed from HDL)\r\n");
+	xil_printf("Offload: DISABLED (no trigger)\r\n");
+	xil_printf("ILA: Use Vivado Hardware Manager\r\n");
 #else
-	xil_printf("CN0561 Full Streaming Mode\n");
-	xil_printf("DMA: ENABLED\n");
-	xil_printf("Offload: ENABLED\n");
+	xil_printf("CN0561 Full Streaming Mode\r\n");
+	xil_printf("DMA: ENABLED\r\n");
+	xil_printf("Offload: ENABLED\r\n");
 #endif
-	xil_printf("========================================\n\n");
+	xil_printf("========================================\r\n\r\n");
 
 	ret = axi_clkgen_init(&clkgen_cn0561, &clkgen_cn0561_init);
 	if (ret != 0)
@@ -260,12 +260,12 @@ int main()
 	ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_STATUS, &status);
 	ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_CONFIG, &device_config);
 
-	xil_printf("=== AD4134 Status ===\n");
-	xil_printf("CHIP_TYPE:     0x%02X %s\n", chip_type,
+	xil_printf("=== AD4134 Status ===\r\n");
+	xil_printf("CHIP_TYPE:     0x%02X %s\r\n", chip_type,
 	           (chip_type == 0x07) ? "[OK]" : "[ERROR]");
-	xil_printf("STATUS:        0x%02X\n", status);
-	xil_printf("DEVICE_CONFIG: 0x%02X\n", device_config);
-	xil_printf("=====================\n\n");
+	xil_printf("STATUS:        0x%02X\r\n", status);
+	xil_printf("DEVICE_CONFIG: 0x%02X\r\n", device_config);
+	xil_printf("=====================\r\n\r\n");
 
 #if STEP1_CONFIG_ONLY
 	/******************************************************************
@@ -275,21 +275,21 @@ int main()
 	 * - Use ILA to observe DCLK, ODR, DOUT signals
 	 ******************************************************************/
 
-	xil_printf("ADC configured for continuous conversion.\n");
-	xil_printf("Data is output on DOUT[3:0] pins.\n");
-	xil_printf("Use ILA in Vivado Hardware Manager to observe signals.\n\n");
-	xil_printf("Monitoring status (10 iterations):\n\n");
+	xil_printf("ADC configured for continuous conversion.\r\n");
+	xil_printf("Data is output on DOUT[3:0] pins.\r\n");
+	xil_printf("Use ILA in Vivado Hardware Manager to observe signals.\r\n\r\n");
+	xil_printf("Monitoring status (10 iterations):\r\n\r\n");
 
 	for (uint32_t loop_count = 1; loop_count <= 10; loop_count++) {
 		ret = ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_STATUS, &status);
 		if (ret == 0) {
-			xil_printf("Loop %4lu: Status = 0x%02X%s%s%s\n",
+			xil_printf("Loop %4lu: Status = 0x%02X%s%s%s\r\n",
 			           (unsigned long)loop_count, status,
-			           (status & 0x01) ? " [PLL_LOCKED]\n" : "",
-			           (status & 0x04) ? " [INT_OSC]\n" : "",
-			           (status & 0x08) ? " [MASTER]\n" : "");
+			           (status & 0x01) ? " [PLL_LOCKED]" : "",
+			           (status & 0x04) ? " [INT_OSC]" : "",
+			           (status & 0x08) ? " [MASTER]" : "");
 		} else {
-			xil_printf("Loop %4lu: Failed to read status\n",
+			xil_printf("Loop %4lu: Failed to read status\r\n",
 			           (unsigned long)loop_count);
 		}
 
@@ -297,14 +297,14 @@ int main()
 
 		/* Every 10 loops, print full register dump */
 		if (loop_count % 10 == 0) {
-			xil_printf("\n--- Register dump at loop %lu ---\n",
+			xil_printf("\r\n--- Register dump at loop %lu ---\r\n",
 			           (unsigned long)loop_count);
 			ad713x_spi_reg_read(cn0561_dev, AD713X_REG_CHIP_TYPE, &chip_type);
 			ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_CONFIG, &device_config);
-			xil_printf("CHIP_TYPE:     0x%02X\n", chip_type);
-			xil_printf("DEVICE_CONFIG: 0x%02X\n", device_config);
-			xil_printf("STATUS:        0x%02X\n", status);
-			xil_printf("--------------------------------\n\n");
+			xil_printf("CHIP_TYPE:     0x%02X\r\n", chip_type);
+			xil_printf("DEVICE_CONFIG: 0x%02X\r\n", device_config);
+			xil_printf("STATUS:        0x%02X\r\n", status);
+			xil_printf("--------------------------------\r\n\r\n");
 		}
 	}
 
@@ -418,7 +418,7 @@ int main()
 			                     data);
 			j++;
 		}
-		printf("%s\n", line);
+		printf("%s\r\n", line);
 	}
 
 #ifdef CN0561_REG_DUMP
@@ -431,7 +431,7 @@ int main()
 
 	/* Cleanup (only reached in full streaming mode, not in Step 1 loop) */
 	ad713x_remove(cn0561_dev);
-	print("Bye\n\r");
+	print("Bye\r\n");
 
 	return 0;
 }
