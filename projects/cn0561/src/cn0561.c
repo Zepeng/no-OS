@@ -285,9 +285,9 @@ int main()
 		if (ret == 0) {
 			xil_printf("Loop %4lu: Status = 0x%02X%s%s%s\n",
 			           (unsigned long)loop_count, status,
-			           (status & 0x01) ? " [PLL_LOCKED]" : "",
-			           (status & 0x04) ? " [INT_OSC]" : "",
-			           (status & 0x08) ? " [MASTER]" : "");
+			           (status & 0x01) ? " [PLL_LOCKED]\n" : "",
+			           (status & 0x04) ? " [INT_OSC]\n" : "",
+			           (status & 0x08) ? " [MASTER]\n" : "");
 		} else {
 			xil_printf("Loop %4lu: Failed to read status\n",
 			           (unsigned long)loop_count);
