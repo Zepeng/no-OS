@@ -262,7 +262,7 @@ int main()
 
 	xil_printf("=== AD4134 Status ===\n");
 	xil_printf("CHIP_TYPE:     0x%02X %s\n", chip_type,
-	           (chip_type == 0x40) ? "[OK]" : "[ERROR]");
+	           (chip_type == 0x07) ? "[OK]" : "[ERROR]");
 	xil_printf("STATUS:        0x%02X\n", status);
 	xil_printf("DEVICE_CONFIG: 0x%02X\n", device_config);
 	xil_printf("=====================\n\n");
@@ -278,27 +278,27 @@ int main()
 	xil_printf("ADC configured for continuous conversion.\n");
 	xil_printf("Data is output on DOUT[3:0] pins.\n");
 	xil_printf("Use ILA in Vivado Hardware Manager to observe signals.\n\n");
-	xil_printf("Monitoring status (press reset to stop):\n\n");
+	xil_printf("Monitoring status (10 iterations):\n\n");
 
-	uint32_t loop_count = 0;
-	while (1) {
+	for (uint32_t loop_count = 1; loop_count <= 10; loop_count++) {
 		ret = ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_STATUS, &status);
 		if (ret == 0) {
-			xil_printf("Loop %4d: Status = 0x%02X", loop_count, status);
-			if (status & 0x01) xil_printf(" [READY]");
-			if (status & 0x40) xil_printf(" [BUSY]");
-			if (status & 0x80) xil_printf(" [ERROR]");
-			xil_printf("\n");
+			xil_printf("Loop %4lu: Status = 0x%02X%s%s%s\n",
+			           (unsigned long)loop_count, status,
+			           (status & 0x01) ? " [PLL_LOCKED]" : "",
+			           (status & 0x04) ? " [INT_OSC]" : "",
+			           (status & 0x08) ? " [MASTER]" : "");
 		} else {
-			xil_printf("Loop %4d: Failed to read status\n", loop_count);
+			xil_printf("Loop %4lu: Failed to read status\n",
+			           (unsigned long)loop_count);
 		}
 
-		loop_count++;
 		sleep(2);  // Every 2 seconds
 
 		/* Every 10 loops, print full register dump */
 		if (loop_count % 10 == 0) {
-			xil_printf("\n--- Register dump at loop %d ---\n", loop_count);
+			xil_printf("\n--- Register dump at loop %lu ---\n",
+			           (unsigned long)loop_count);
 			ad713x_spi_reg_read(cn0561_dev, AD713X_REG_CHIP_TYPE, &chip_type);
 			ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_CONFIG, &device_config);
 			xil_printf("CHIP_TYPE:     0x%02X\n", chip_type);
@@ -398,20 +398,27 @@ int main()
 				  sizeof(uint32_t));
 
 	for (i = 0; i < CN0561_FMC_SAMPLE_NO; i++) {
+		int line_len = 0;
+		char line[256];
+
+		line_len += snprintf(line + line_len, sizeof(line) - line_len,
+		                     "%lu:", (unsigned long)i);
 		j = 0;
-		printf("%lu: ", i);
-		while (j < CN0561_FMC_CH_NO) {
+		while (j < CN0561_FMC_CH_NO && line_len < (int)sizeof(line)) {
 			adc_buffer[CN0561_FMC_CH_NO * i + j] &= 0xffffff00;
 			adc_buffer[CN0561_FMC_CH_NO * i + j] >>= 8;
 			data = lsb * (int32_t)adc_buffer[CN0561_FMC_CH_NO * i + j];
 			if (data > 4.095)
 				data = data - 8.192;
-			printf("CH%lu: 0x%08lx = %+1.5fV ", j,
-			       adc_buffer[CN0561_FMC_CH_NO * i + j], data);
-			if (j == (CN0561_FMC_CH_NO - 1))
-				printf("\n");
+			line_len += snprintf(line + line_len,
+			                     sizeof(line) - line_len,
+			                     " CH%lu: 0x%08lx = %+1.5fV",
+			                     (unsigned long)j,
+			                     (unsigned long)adc_buffer[CN0561_FMC_CH_NO * i + j],
+			                     data);
 			j++;
 		}
+		printf("%s\n", line);
 	}
 
 #ifdef CN0561_REG_DUMP

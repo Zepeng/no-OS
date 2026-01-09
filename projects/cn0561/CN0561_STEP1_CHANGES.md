@@ -91,19 +91,20 @@ xil_printf("=====================\n\n");
 	xil_printf("ADC configured for continuous conversion.\n");
 	xil_printf("Data is output on DOUT[3:0] pins.\n");
 	xil_printf("Use ILA in Vivado Hardware Manager to observe signals.\n\n");
-	xil_printf("Monitoring status (press reset to stop):\n\n");
+	xil_printf("Monitoring status (10 iterations):\n\n");
 
-	uint32_t loop_count = 0;
-	while (1) {
+	for (uint32_t loop_count = 1; loop_count <= 10; loop_count++) {
 		ret = ad713x_spi_reg_read(cn0561_dev, AD713X_REG_DEVICE_STATUS, &status);
 		if (ret == 0) {
-			xil_printf("Loop %4d: Status = 0x%02X", loop_count, status);
-			if (status & 0x01) xil_printf(" [READY]");
-			if (status & 0x40) xil_printf(" [BUSY]");
-			if (status & 0x80) xil_printf(" [ERROR]");
-			xil_printf("\n");
+			xil_printf("Loop %4lu: Status = 0x%02X%s%s%s\n",
+			           (unsigned long)loop_count, status,
+			           (status & 0x01) ? " [PLL_LOCKED]" : "",
+			           (status & 0x04) ? " [INT_OSC]" : "",
+			           (status & 0x08) ? " [MASTER]" : "");
+		} else {
+			xil_printf("Loop %4lu: Failed to read status\n",
+			           (unsigned long)loop_count);
 		}
-		loop_count++;
 		sleep(2);  // Every 2 seconds
 
 		/* Every 10 loops, print full register dump */
