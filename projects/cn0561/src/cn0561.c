@@ -159,14 +159,14 @@ int main()
 		.channel = 1
 	};
 	struct no_os_pwm_init_param axi_pwm_init_trigger = {
-		.period_ns = 1000,
+		.period_ns = 3000,
 		.duty_cycle_ns = 1,
 		.phase_ns = 45,
 		.platform_ops = &axi_pwm_ops,
 		.extra = &axi_zed_pwm_init_trigger
 	};
 	struct no_os_pwm_init_param axi_pwm_init_odr = {
-		.period_ns = 1000,
+		.period_ns = 3000,
 		.duty_cycle_ns = 130,
 		.phase_ns = 0,
 		.platform_ops = &axi_pwm_ops,
