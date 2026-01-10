@@ -105,6 +105,100 @@ static void ad4134_slave_mode_checks(struct ad713x_dev *dev)
 		xil_printf("DEVICE_CONFIG: read error\r\n");
 	}
 
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_INTERNAL_ERROR, &reg);
+	if (ret == 0) {
+		xil_printf("INTERNAL_ERROR: 0x%02X\r\n", reg);
+		xil_printf("  NO_CLOCK:    %s\r\n",
+		           (reg & AD713X_INT_ERR_NO_CLOCK_MSK) ? "FAIL" : "OK");
+		xil_printf("  TEMP:        %s\r\n",
+		           (reg & AD713X_INT_ERR_TEMP_MSK) ? "FAIL" : "OK");
+		xil_printf("  DCLK:        %s\r\n",
+		           (reg & AD713X_INT_ERR_DCLK_MSK) ? "FAIL" : "OK");
+		xil_printf("  FUSE_CRC:    %s\r\n",
+		           (reg & AD713X_INT_ERR_FUSE_CRC_MSK) ? "FAIL" : "OK");
+		xil_printf("  ASRC:        %s\r\n",
+		           (reg & AD713X_INT_ERR_ASRC_MSK) ? "FAIL" : "OK");
+		xil_printf("  MM_CRC:      %s\r\n",
+		           (reg & AD713X_INT_ERR_MM_CRC_MSK) ? "FAIL" : "OK");
+	} else {
+		xil_printf("INTERNAL_ERROR: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_POWER_OV_ERROR_1, &reg);
+	if (ret == 0) {
+		xil_printf("POWER_OV_ERROR_1: 0x%02X\r\n", reg);
+		xil_printf("  IOVDD:       %s\r\n",
+		           (reg & AD713X_POWER_ERR_OV_IOVDD_MSK) ? "FAIL" : "OK");
+		xil_printf("  CLKVDD:      %s\r\n",
+		           (reg & AD713X_POWER_ERR_OV_CLKVDD_MSK) ? "FAIL" : "OK");
+		xil_printf("  DVDD1V8:     %s\r\n",
+		           (reg & AD713X_POWER_ERR_OV_DVDD1V8_MSK) ? "FAIL" : "OK");
+		xil_printf("  AVDD1V8:     %s\r\n",
+		           (reg & AD713X_POWER_ERR_OV_AVDD1V8_MSK) ? "FAIL" : "OK");
+	} else {
+		xil_printf("POWER_OV_ERROR_1: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_POWER_UV_ERROR_1, &reg);
+	if (ret == 0) {
+		xil_printf("POWER_UV_ERROR_1: 0x%02X\r\n", reg);
+		xil_printf("  IOVDD:       %s\r\n",
+		           (reg & AD713X_POWER_ERR_UV_IOVDD_MSK) ? "FAIL" : "OK");
+		xil_printf("  CLKVDD:      %s\r\n",
+		           (reg & AD713X_POWER_ERR_UV_CLKVDD_MSK) ? "FAIL" : "OK");
+		xil_printf("  DVDD1V8:     %s\r\n",
+		           (reg & AD713X_POWER_ERR_UV_DVDD1V8_MSK) ? "FAIL" : "OK");
+		xil_printf("  AVDD1V8:     %s\r\n",
+		           (reg & AD713X_POWER_ERR_UV_AVDD1V8_MSK) ? "FAIL" : "OK");
+	} else {
+		xil_printf("POWER_UV_ERROR_1: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_POWER_OV_ERROR_2, &reg);
+	if (ret == 0) {
+		xil_printf("POWER_OV_ERROR_2: 0x%02X\r\n", reg);
+		xil_printf("  VREF:        %s\r\n",
+		           (reg & AD713X_POWER_ERR_OV_VREF_MSK) ? "FAIL" : "OK");
+		xil_printf("  LDOIN:       %s\r\n",
+		           (reg & AD713X_POWER_ERR_OV_LDOIN_MSK) ? "FAIL" : "OK");
+		xil_printf("  DVDD5:       %s\r\n",
+		           (reg & AD713X_POWER_ERR_OV_DVDD5_MSK) ? "FAIL" : "OK");
+		xil_printf("  AVDD5:       %s\r\n",
+		           (reg & AD713X_POWER_ERR_OV_AVDD5_MSK) ? "FAIL" : "OK");
+	} else {
+		xil_printf("POWER_OV_ERROR_2: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_POWER_UV_ERROR_2, &reg);
+	if (ret == 0) {
+		xil_printf("POWER_UV_ERROR_2: 0x%02X\r\n", reg);
+		xil_printf("  VREF:        %s\r\n",
+		           (reg & AD713X_POWER_ERR_UV_VREF_MSK) ? "FAIL" : "OK");
+		xil_printf("  LDOIN:       %s\r\n",
+		           (reg & AD713X_POWER_ERR_UV_LDOIN_MSK) ? "FAIL" : "OK");
+		xil_printf("  DVDD5:       %s\r\n",
+		           (reg & AD713X_POWER_ERR_UV_DVDD5_MSK) ? "FAIL" : "OK");
+		xil_printf("  AVDD5:       %s\r\n",
+		           (reg & AD713X_POWER_ERR_UV_AVDD5_MSK) ? "FAIL" : "OK");
+	} else {
+		xil_printf("POWER_UV_ERROR_2: read error\r\n");
+	}
+
+	ret = ad713x_spi_reg_read(dev, AD713X_REG_SPI_ERROR, &reg);
+	if (ret == 0) {
+		xil_printf("SPI_ERROR: 0x%02X\r\n", reg);
+		xil_printf("  CRC:         %s\r\n",
+		           (reg & AD713X_SPI_ERROR_CRC_MSK) ? "FAIL" : "OK");
+		xil_printf("  SCLK_CNT:    %s\r\n",
+		           (reg & AD713X_SPI_ERROR_SCLK_CNT_MSK) ? "FAIL" : "OK");
+		xil_printf("  WRITE:       %s\r\n",
+		           (reg & AD713X_SPI_ERROR_WRITE_MSK) ? "FAIL" : "OK");
+		xil_printf("  READ:        %s\r\n",
+		           (reg & AD713X_SPI_ERROR_READ_MSK) ? "FAIL" : "OK");
+	} else {
+		xil_printf("SPI_ERROR: read error\r\n");
+	}
+
 	ret = ad713x_spi_reg_read(dev, AD713X_REG_DEVICE_CONFIG1, &reg);
 	if (ret == 0) {
 		xil_printf("DEVICE_CONFIG1: 0x%02X\r\n", reg);
