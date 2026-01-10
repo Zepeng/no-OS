@@ -62,8 +62,8 @@
 /******************************************************************************/
 
 /* AD4134 Step 1 Configuration Mode
- * Set to 1: Configuration only (no DMA, no offload) - for Step 1 testing
- * Set to 0: Full streaming mode (with DMA and offload) - for Step 3
+ * Set to 1: Configuration only (no DMA) - for Step 1 testing
+ * Set to 0: Streaming mode (DMA + custom AXI-stream capture) - for Step 3
  */
 #define STEP1_CONFIG_ONLY  1
 #define AXI_CLKGEN_REG_RESETN 0x40
