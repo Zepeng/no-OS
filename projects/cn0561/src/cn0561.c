@@ -207,14 +207,16 @@ int main()
 	uint32_t max_speed_hz = ZED_DATA_CLK_FREQ_HZ;
 
 #if !STEP1_CONFIG_ONLY
-	/* DMA/Offload variables - only for full streaming mode (Step 3) */
+	/* DMA variables - only for full streaming mode (Step 3) */
 	uint32_t i = 0, j;
 	const float lsb = 4.096 / (pow(2, 23));
 	float data;
-	uint32_t spi_eng_dma_flg = DMA_LAST | DMA_PARTIAL_REPORTING_EN;
-	struct spi_engine_offload_init_param spi_engine_offload_init_param;
-	struct spi_engine_offload_message spi_engine_offload_message;
-	uint32_t spi_eng_msg_cmds[1];
+	struct axi_dmac *axi_dma;
+	struct axi_dmac_init axi_dma_init = {
+		.name = "ad4134_dma",
+		.base = CN0561_DMA_BASEADDR,
+		.irq_option = IRQ_DISABLED
+	};
 #endif
 	static struct xil_spi_init_param spi_engine_init_params = {
 		.type = SPI_PS,
@@ -238,22 +240,6 @@ int main()
 	};
 	max_speed_hz = ZED_DATA_CLK_FREQ_HZ;
 #endif
-	struct no_os_spi_desc *spi_eng_desc;
-	struct spi_engine_init_param spi_eng_init_param  = {
-		.type = SPI_ENGINE,
-		.spi_engine_baseaddr = CN0561_SPI_ENGINE_BASEADDR,
-		.cs_delay = 0,
-		.data_width = 32,
-		.ref_clk_hz = CN0561_SPI_ENG_REF_CLK_FREQ_HZ
-	};
-	const struct no_os_spi_init_param spi_eng_init_prm  = {
-		.chip_select = CN0561_SPI_CS,
-		.max_speed_hz = max_speed_hz,
-		.mode = NO_OS_SPI_MODE_1,
-		.platform_ops = &spi_eng_platform_ops,
-		.extra = (void*)&spi_eng_init_param,
-	};
-
 	struct no_os_pwm_desc *axi_pwm;
 	struct axi_pwm_init_param axi_zed_pwm_init_trigger = {
 		.base_addr = XPAR_ODR_GENERATOR_BASEADDR,
@@ -324,9 +310,9 @@ int main()
 	xil_printf("Offload: DISABLED (no trigger)\r\n");
 	xil_printf("ILA: Use Vivado Hardware Manager\r\n");
 #else
-	xil_printf("CN0561 Full Streaming Mode\r\n");
+	xil_printf("AD4134 Custom Streaming Mode\r\n");
 	xil_printf("DMA: ENABLED\r\n");
-	xil_printf("Offload: ENABLED\r\n");
+	xil_printf("Capture: CUSTOM AXI-STREAM\r\n");
 #endif
 	xil_printf("========================================\r\n\r\n");
 
@@ -424,85 +410,31 @@ int main()
 #else
 	/******************************************************************
 	 * STEP 3: Full Streaming Mode
-	 * - Initialize DMA and offload
-	 * - Start continuous data capture
+	 * - Initialize DMA for custom AXI-stream capture
+	 * - Start data capture
 	 ******************************************************************/
 
-	spi_engine_offload_init_param.rx_dma_baseaddr = CN0561_DMA_BASEADDR;
-	spi_engine_offload_init_param.offload_config = OFFLOAD_RX_EN;
-	spi_engine_offload_init_param.dma_flags = spi_eng_dma_flg;
-
-	ret = no_os_spi_init(&spi_eng_desc, &spi_eng_init_prm);
-	if (ret != 0)
-		return -1;
-
-	ret = spi_engine_offload_init(spi_eng_desc, &spi_engine_offload_init_param);
-	if (ret != 0)
-		return -1;
-
-	spi_engine_offload_message.commands = spi_eng_msg_cmds;
-	spi_engine_offload_message.no_commands = NO_OS_ARRAY_SIZE(spi_eng_msg_cmds);
-	spi_engine_offload_message.commands_data = NULL;
-	spi_engine_offload_message.rx_addr = (uint32_t)adc_buffer;
-	spi_engine_offload_message.tx_addr = 0xA000000;
-
 #ifdef IIO_SUPPORT
-	struct iio_data_buffer rd_buff = {
-		.buff = (void *)adc_buffer,
-		.size = ADC_BUFFER_SIZE
-	};
-	struct ad713x_iio *iio_desc;
-	struct ad713x_iio_init_param iio_desc_param = {
-		.drv_dev = cn0561_dev,
-		.vref_int = 4,
-		.vref_micro = 96000,
-		.spi_eng_desc = spi_eng_desc,
-		.dcache_invalidate_range =
-		(void (*)(uint32_t,  uint32_t))Xil_DCacheInvalidateRange,
-		.iio_dev = &ad713x_iio_desc
-	};
-	struct xil_uart_init_param platform_uart_init_par = {
-		.type = UART_PS,
-		.irq_id = UART_IRQ_ID
-	};
-
-	struct no_os_uart_init_param iio_uart_ip = {
-		.device_id = UART_DEVICE_ID,
-		.irq_id = UART_IRQ_ID,
-		.baud_rate = UART_BAUDRATE,
-		.size = NO_OS_UART_CS_8,
-		.parity = NO_OS_UART_PAR_NO,
-		.stop = NO_OS_UART_STOP_1_BIT,
-		.extra = &platform_uart_init_par,
-		.platform_ops = &xil_uart_ops
-	};
-
-	struct iio_app_desc *app;
-	struct iio_app_init_param app_init_param = { 0 };
-
-	ret = iio_ad713x_init(&iio_desc, &iio_desc_param);
-	if (ret < 0)
-		return ret;
-
-	struct iio_app_device devices[] = {
-		IIO_APP_DEVICE("ad4134", iio_desc, &ad713x_iio_desc,
-			       &rd_buff, NULL, NULL),
-	};
-
-	app_init_param.devices = devices;
-	app_init_param.nb_devices = NO_OS_ARRAY_SIZE(devices);
-	app_init_param.uart_init_params = iio_uart_ip;
-
-	ret = iio_app_init(&app, app_init_param);
-	if (ret)
-		return ret;
-
-	return iio_app_run(app);
-
+	xil_printf("IIO mode is not supported with custom capture.\r\n");
+	return -1;
 #endif /* IIO_SUPPORT */
 
-	ret = spi_engine_offload_transfer(spi_eng_desc, spi_engine_offload_message,
-					  (CN0561_FMC_CH_NO * CN0561_FMC_SAMPLE_NO));
+	ret = axi_dmac_init(&axi_dma, &axi_dma_init);
+	if (ret != 0)
+		return ret;
+
+	struct axi_dma_transfer rx_transfer = {
+		.size = CN0561_FMC_CH_NO * CN0561_FMC_SAMPLE_NO * sizeof(uint32_t),
+		.transfer_done = 0,
+		.cyclic = NO,
+		.src_addr = 0,
+		.dest_addr = (uintptr_t)adc_buffer
+	};
+
+	ret = axi_dmac_transfer_start(axi_dma, &rx_transfer);
+	if (ret != 0)
+		return ret;
+	ret = axi_dmac_transfer_wait_completion(axi_dma, 5000);
 	if (ret != 0)
 		return ret;
 

@@ -38,8 +38,8 @@
 /* AD4134 Step 1 Configuration - Modified for Step 1 HDL */
 #define SPI_DEVICE_ID			XPAR_PS7_SPI_0_DEVICE_ID
 #define GPIO_DEVICE_ID			XPAR_PS7_GPIO_0_DEVICE_ID
-// Step 1: DMA removed from HDL - comment out this line
-// #define CN0561_DMA_BASEADDR		XPAR_AXI_CN0561_DMA_BASEADDR
+// DMA base address for custom AXI-stream capture
+#define CN0561_DMA_BASEADDR		XPAR_AXI_CN0561_DMA_BASEADDR
 // Update to AD4134 SPI engine and clock generator addresses
 #define CN0561_SPI_ENGINE_BASEADDR	XPAR_SPI_AD4134_SPI_AD4134_AXI_REGMAP_BASEADDR
 #define CN0561_CLKGEN_BASEADDR		XPAR_AXI_AD4134_CLKGEN_BASEADDR
