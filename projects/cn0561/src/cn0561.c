@@ -379,7 +379,7 @@ int main()
 	cn0561_init_param.gpio_resetn = NULL;
 #endif
 	cn0561_init_param.mode_master_nslave = false;
-	cn0561_init_param.dclkmode_free_ngated = false;
+	cn0561_init_param.dclkmode_free_ngated = true;  /* Free-running DCLK for continuous streaming */
 	cn0561_init_param.dclkio_out_nin = false;
 	cn0561_init_param.pnd = true;
 	cn0561_init_param.spi_init_prm.chip_select = CN0561_SPI_CS;
