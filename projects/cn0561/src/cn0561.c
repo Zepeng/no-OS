@@ -332,6 +332,11 @@ int main()
 		.platform_ops = &xil_gpio_ops,
 		.extra = &gpio_extra_param
 	};
+	struct no_os_gpio_init_param cn0561_dclkmode = {
+		.number = GPIO_DCLKMODE,
+		.platform_ops = &xil_gpio_ops,
+		.extra = &gpio_extra_param
+	};
 	max_speed_hz = ZED_DATA_CLK_FREQ_HZ;
 #endif
 	struct no_os_pwm_desc *axi_pwm;
@@ -369,14 +374,15 @@ int main()
 	cn0561_init_param.dev_id = ID_AD4134;
 	cn0561_init_param.format = QUAD_CH_PO;
 	cn0561_init_param.gpio_dclkio = NULL;
-	cn0561_init_param.gpio_dclkmode = NULL;
 	cn0561_init_param.gpio_pnd = &cn0561_pnd;
 #ifdef CN0561_ZED_CARRIER
 	cn0561_init_param.gpio_mode = &cn0561_mode;
 	cn0561_init_param.gpio_resetn = &cn0561_resetn;
+	cn0561_init_param.gpio_dclkmode = &cn0561_dclkmode;
 #else
 	cn0561_init_param.gpio_mode = NULL;
 	cn0561_init_param.gpio_resetn = NULL;
+	cn0561_init_param.gpio_dclkmode = NULL;
 #endif
 	cn0561_init_param.mode_master_nslave = false;
 	cn0561_init_param.dclkmode_free_ngated = true;  /* Free-running DCLK for continuous streaming */
