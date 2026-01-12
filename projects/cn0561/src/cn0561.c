@@ -67,6 +67,7 @@
  */
 #define STEP1_CONFIG_ONLY  1
 #define AXI_CLKGEN_REG_RESETN 0x40
+#define AXI_CLKGEN_REG_STATUS 0x5C
 #define AXI_CLKGEN_MMCM_RESETN (1U << 1)
 #define AXI_CLKGEN_RESETN (1U << 0)
 
@@ -424,6 +425,16 @@ int main()
 	                         AXI_CLKGEN_RESETN | AXI_CLKGEN_MMCM_RESETN);
 	if (ret != 0)
 		return ret;
+
+	/* Wait for MMCM to lock and DCLK to stabilize */
+	xil_printf("Waiting for clock generator to lock...\r\n");
+	no_os_mdelay(100);
+	uint32_t clkgen_status;
+	ret = no_os_axi_io_read(clkgen_cn0561_init.base, AXI_CLKGEN_REG_STATUS, &clkgen_status);
+	if (ret == 0) {
+		xil_printf("Clock generator status: 0x%08X %s\r\n", clkgen_status,
+		           (clkgen_status & 0x1) ? "[LOCKED]" : "[UNLOCKED]");
+	}
 
 	ret = no_os_pwm_init(&axi_pwm, &axi_pwm_init_trigger);
 	if (ret != 0)
