@@ -58,9 +58,8 @@
 #define GPIO_5				(GPIO_OFFSET + 40)
 #define GPIO_6				(GPIO_OFFSET + 41)
 #define GPIO_7				(GPIO_OFFSET + 42)
-#define GPIO_DCLKIO1		(GPIO_OFFSET + 46)
-#define GPIO_DCLKIO2		(GPIO_OFFSET + 47)
-#define GPIO_DCLKMODE		(GPIO_OFFSET + 49)
+#define GPIO_DCLKMODE		(GPIO_OFFSET + 44)  /* AD4134: gpio_o[44] = ad4134_dclk_mode */
+#define GPIO_DCLKIO			(GPIO_OFFSET + 45)  /* AD4134: gpio_o[45] = ad4134_dclkio */
 #define CN0561_FMC_CH_NO		4
 #define CN0561_FMC_SAMPLE_NO	256
 
