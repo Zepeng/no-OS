@@ -437,6 +437,19 @@ int main()
 	if (ret != 0)
 		return -1;
 
+	xil_printf("\r\n=== GPIO Configuration Debug ===\r\n");
+	xil_printf("dclkmode_free_ngated = %s\r\n",
+	           cn0561_init_param.dclkmode_free_ngated ? "true (FREE)" : "false (GATED)");
+	if (cn0561_dev->gpio_dclkmode) {
+		uint8_t gpio_val;
+		ret = no_os_gpio_get_value(cn0561_dev->gpio_dclkmode, &gpio_val);
+		xil_printf("DCLKMODE GPIO value = %d %s\r\n", gpio_val,
+		           gpio_val ? "(HIGH=FREE)" : "(LOW=GATED)");
+	} else {
+		xil_printf("DCLKMODE GPIO = NULL (not controlled)\r\n");
+	}
+	xil_printf("================================\r\n\r\n");
+
 	for (adc_channel = CH0; adc_channel <= CH3; adc_channel++) {
 		ret = ad713x_dig_filter_sel_ch(cn0561_dev, SINC3, adc_channel);
 		if (ret != 0)
